@@ -1,0 +1,13 @@
+{
+  "domain": "adhdtasker",
+  "name": "ADHDTasker",
+  "codeowners": ["@bearkiter-alt"],
+  "config_flow": true,
+  "dependencies": ["webhook"],
+  "documentation": "https://adhdtasker.com/home-assistant.html",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/bearkiter-alt/ADHDTasker/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

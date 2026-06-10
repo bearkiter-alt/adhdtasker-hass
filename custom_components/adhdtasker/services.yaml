@@ -1,0 +1,190 @@
+add_task:
+  name: Add task
+  description: Create a chore on the family board (points = onerousness × minutes × the family rate).
+  fields:
+    config_entry_id:
+      name: Family
+      description: Which ADHDTasker family (only needed if you've added more than one).
+      required: false
+      selector:
+        config_entry:
+          integration: adhdtasker
+    title:
+      name: Title
+      description: What the chore is.
+      required: true
+      example: Empty the dishwasher
+      selector:
+        text:
+    type:
+      name: Type
+      description: Cadence of the task.
+      required: false
+      selector:
+        select:
+          options: [ONEOFF, DAILY, WEEKLY, FORTNIGHTLY, MONTHLY, INTERRUPT]
+    onerousness:
+      name: Onerousness
+      description: How unpleasant, 1–10.
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 10
+          mode: slider
+    minutes:
+      name: Minutes
+      description: Roughly how long it takes.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 1440
+          unit_of_measurement: min
+    assignee:
+      name: Assignee
+      description: Profile name to assign it to (blank = anyone).
+      required: false
+      selector:
+        text:
+    days:
+      name: Days (WEEKLY)
+      description: "For WEEKLY tasks, the weekday numbers, e.g. [1,2,3,4,5]."
+      required: false
+      selector:
+        object:
+
+add_interrupt:
+  name: Add interrupt
+  description: Capture a quick zero-point interrupt note on the shared inbox.
+  fields:
+    config_entry_id:
+      name: Family
+      description: Which ADHDTasker family (only needed with more than one).
+      required: false
+      selector:
+        config_entry:
+          integration: adhdtasker
+    title:
+      name: Note
+      description: The interrupt text.
+      required: true
+      example: Don't forget the spare wheel
+      selector:
+        text:
+
+claim_task:
+  name: Claim task
+  description: Mark a task in-progress, claimed by a profile.
+  fields:
+    config_entry_id:
+      name: Family
+      required: false
+      selector:
+        config_entry:
+          integration: adhdtasker
+    task_id:
+      name: Task ID
+      description: The task id (from sensor.* attributes). Provide this or a title.
+      required: false
+      selector:
+        text:
+    task_title:
+      name: Task title
+      description: Match by title instead of id.
+      required: false
+      selector:
+        text:
+    profile:
+      name: Profile
+      description: Who's claiming it.
+      required: false
+      selector:
+        text:
+
+complete_task:
+  name: Complete task
+  description: Mark a task done and award its points to a profile.
+  fields:
+    config_entry_id:
+      name: Family
+      required: false
+      selector:
+        config_entry:
+          integration: adhdtasker
+    task_id:
+      name: Task ID
+      description: The task id. Provide this or a title.
+      required: false
+      selector:
+        text:
+    task_title:
+      name: Task title
+      description: Match by title instead of id.
+      required: false
+      selector:
+        text:
+    profile:
+      name: Profile
+      description: Who gets the points (blank = whoever claimed it).
+      required: false
+      selector:
+        text:
+
+approve_task:
+  name: Approve task
+  description: Approve a child's submitted task (marks it done + awards points) or a proposed task.
+  fields:
+    config_entry_id:
+      name: Family
+      required: false
+      selector:
+        config_entry:
+          integration: adhdtasker
+    task_id:
+      name: Task ID
+      description: The task id. Provide this or a title.
+      required: false
+      selector:
+        text:
+    task_title:
+      name: Task title
+      description: Match by title instead of id.
+      required: false
+      selector:
+        text:
+    profile:
+      name: Profile
+      description: Who gets the points (blank = whoever claimed it).
+      required: false
+      selector:
+        text:
+
+ping:
+  name: Ping family
+  description: Send a push notification to the whole family or one profile.
+  fields:
+    config_entry_id:
+      name: Family
+      required: false
+      selector:
+        config_entry:
+          integration: adhdtasker
+    title:
+      name: Title
+      required: false
+      example: School morning
+      selector:
+        text:
+    message:
+      name: Message
+      required: false
+      example: Time to get ready!
+      selector:
+        text:
+    profile:
+      name: Profile
+      description: Target one profile by name (blank = whole family).
+      required: false
+      selector:
+        text:

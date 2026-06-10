@@ -1,0 +1,107 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect ADHDTasker",
+        "description": "Generate a key in the web app: Manage → Inbound API, then paste it here.",
+        "data": {
+          "api_key": "API key",
+          "base_url": "API URL"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter ADHDTasker API key",
+        "description": "Your API key was rejected (it may have been regenerated). Paste the current key.",
+        "data": {
+          "api_key": "API key"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid API key.",
+      "cannot_connect": "Couldn't reach ADHDTasker."
+    },
+    "abort": {
+      "already_configured": "This ADHDTasker family is already set up.",
+      "reauth_successful": "Re-authenticated successfully."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ADHDTasker options",
+        "data": {
+          "scan_interval": "Poll interval (seconds)",
+          "secret": "Webhook shared secret (optional)"
+        },
+        "data_description": {
+          "scan_interval": "How often to refresh the board (15–3600s).",
+          "secret": "If set, incoming webhook events must carry this secret to be trusted."
+        }
+      }
+    }
+  },
+  "services": {
+    "add_task": {
+      "name": "Add task",
+      "description": "Create a chore on the family board (points = onerousness × minutes × the family rate).",
+      "fields": {
+        "config_entry_id": { "name": "Family", "description": "Which ADHDTasker family (only needed with more than one)." },
+        "title": { "name": "Title", "description": "What the chore is." },
+        "type": { "name": "Type", "description": "Cadence of the task." },
+        "onerousness": { "name": "Onerousness", "description": "How unpleasant, 1–10." },
+        "minutes": { "name": "Minutes", "description": "Roughly how long it takes." },
+        "assignee": { "name": "Assignee", "description": "Profile name to assign it to (blank = anyone)." },
+        "days": { "name": "Days (WEEKLY)", "description": "For WEEKLY tasks, the weekday numbers, e.g. [1,2,3,4,5]." }
+      }
+    },
+    "add_interrupt": {
+      "name": "Add interrupt",
+      "description": "Capture a quick zero-point interrupt note on the shared inbox.",
+      "fields": {
+        "config_entry_id": { "name": "Family", "description": "Which ADHDTasker family." },
+        "title": { "name": "Note", "description": "The interrupt text." }
+      }
+    },
+    "claim_task": {
+      "name": "Claim task",
+      "description": "Mark a task in-progress, claimed by a profile.",
+      "fields": {
+        "config_entry_id": { "name": "Family", "description": "Which ADHDTasker family." },
+        "task_id": { "name": "Task ID", "description": "The task id. Provide this or a title." },
+        "task_title": { "name": "Task title", "description": "Match by title instead of id." },
+        "profile": { "name": "Profile", "description": "Who's claiming it." }
+      }
+    },
+    "complete_task": {
+      "name": "Complete task",
+      "description": "Mark a task done and award its points to a profile.",
+      "fields": {
+        "config_entry_id": { "name": "Family", "description": "Which ADHDTasker family." },
+        "task_id": { "name": "Task ID", "description": "The task id. Provide this or a title." },
+        "task_title": { "name": "Task title", "description": "Match by title instead of id." },
+        "profile": { "name": "Profile", "description": "Who gets the points (blank = whoever claimed it)." }
+      }
+    },
+    "approve_task": {
+      "name": "Approve task",
+      "description": "Approve a child's submitted task (marks it done + awards points) or a proposed task.",
+      "fields": {
+        "config_entry_id": { "name": "Family", "description": "Which ADHDTasker family." },
+        "task_id": { "name": "Task ID", "description": "The task id. Provide this or a title." },
+        "task_title": { "name": "Task title", "description": "Match by title instead of id." },
+        "profile": { "name": "Profile", "description": "Who gets the points (blank = whoever claimed it)." }
+      }
+    },
+    "ping": {
+      "name": "Ping family",
+      "description": "Send a push notification to the whole family or one profile.",
+      "fields": {
+        "config_entry_id": { "name": "Family", "description": "Which ADHDTasker family." },
+        "title": { "name": "Title", "description": "Notification title." },
+        "message": { "name": "Message", "description": "Notification body." },
+        "profile": { "name": "Profile", "description": "Target one profile by name (blank = whole family)." }
+      }
+    }
+  }
+}

@@ -1,0 +1,83 @@
+# ADHDTasker — example Lovelace dashboard
+# Paste into a new dashboard: Settings → Dashboards → Add dashboard → (open it) →
+# Edit → ⋮ → Raw configuration editor → replace with this.
+#
+# Entity IDs assume a single ADHDTasker family (sensor.adhdtasker_*, todo.adhdtasker_board).
+# If you have more than one family, the second gets a _2 suffix — adjust below.
+# Note: `perform-action` / `perform_action` is HA 2024.8+. On older cores use
+# `call-service` / `service` instead.
+
+title: ADHDTasker
+views:
+  - title: Chores
+    path: chores
+    icon: mdi:broom
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Family board
+            icon: mdi:clipboard-check-multiple-outline
+          # Add a chore by typing; tick one off to complete it and award points.
+          - type: todo-list
+            entity: todo.adhdtasker_board
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Ping family
+                icon: mdi:bell-ring
+                tap_action:
+                  action: perform-action
+                  perform_action: adhdtasker.ping
+                  data:
+                    title: Chores
+                    message: Check the board!
+              - type: button
+                name: Refresh
+                icon: mdi:refresh
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target:
+                    entity_id: button.adhdtasker_refresh
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: At a glance
+            icon: mdi:chart-box-outline
+          - type: gauge
+            entity: sensor.adhdtasker_open_tasks
+            name: Open tasks
+            min: 0
+            max: 20
+            needle: false
+            severity:
+              green: 0
+              yellow: 5
+              red: 12
+          - type: entities
+            entities:
+              - entity: sensor.adhdtasker_pending_approval
+                name: Waiting for approval
+                icon: mdi:clipboard-check-outline
+              - entity: sensor.adhdtasker_last_event
+                name: Last event
+                icon: mdi:bell-ring-outline
+          - type: markdown
+            title: Leaderboard
+            content: >-
+              {% set lb = state_attr('sensor.adhdtasker_open_tasks',
+              'leaderboard') or [] %} {% if lb %}
+
+              | # | Who | Points | Bank |
+              |---|-----|-------:|-----:|
+              {% for k in lb %}| {{ loop.index }} | {{ k.name }} | {{ k.lifetime
+              }} | {{ k.balance }} |
+              {% endfor %}
+              {% else %}
+
+              _No profiles yet._
+              {% endif %}
