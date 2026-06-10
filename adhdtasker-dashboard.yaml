@@ -82,6 +82,18 @@ views:
               - entity: sensor.FAMILY_adhdtasker_last_event
                 name: Last event
 
+      # ── Tap-through task list (links open the task in the web app) ──
+      - type: grid
+        cards:
+          - type: heading
+            heading: Open chores — tap to open
+            icon: mdi:open-in-new
+          - type: markdown
+            content: |
+              {% set ts = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'tasks') or [] %}{% if ts %}
+              {% for t in ts %}- [{{ t.title }}](https://app.adhdtasker.com/?task={{ t.id }}){{ ' · ' ~ t.assignee if t.assignee }}{{ ' · ' ~ t.points ~ ' pts' if t.points }}{{ ' · ⏳ approval' if t.status == 'PENDING_APPROVAL' }}
+              {% endfor %}{% else %}_Board is clear!_ 🎉{% endif %}
+
       # ── Leaderboard + activity ────────────────────────────
       - type: grid
         cards:
