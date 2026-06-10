@@ -217,8 +217,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
     def _require_target(call: ServiceCall) -> tuple[str | None, str | None]:
         tid = call.data.get("task_id")
         ttl = call.data.get("task_title")
-        if not tid and not ttl:
-            raise HomeAssistantError("Provide either task_id or task_title.")
+        if bool(tid) == bool(ttl):
+            raise HomeAssistantError(
+                "Provide exactly one of task_id or task_title."
+            )
         return tid, ttl
 
     async def _claim_task(call: ServiceCall) -> None:

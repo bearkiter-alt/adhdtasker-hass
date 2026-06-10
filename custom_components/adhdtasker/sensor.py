@@ -9,6 +9,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
@@ -58,6 +59,9 @@ class OpenTasksSensor(AdhdtaskerEntity, SensorEntity):
     _attr_icon = "mdi:clipboard-list-outline"
     _attr_native_unit_of_measurement = "tasks"
     _attr_state_class = SensorStateClass.MEASUREMENT
+    # The board/leaderboard are large and change often — keep them live for the
+    # dashboard but out of the recorder so history doesn't bloat (counts are kept).
+    _unrecorded_attributes = frozenset({"tasks", "leaderboard"})
 
     def __init__(self, coordinator: AdhdtaskerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
@@ -140,6 +144,8 @@ class LastEventSensor(AdhdtaskerEntity, SensorEntity):
     """The most recent event pushed to the HA webhook (task.completed, ping, …)."""
 
     _attr_icon = "mdi:bell-ring-outline"
+    # The state (event name) is recorded; the payload attributes are not.
+    _unrecorded_attributes = frozenset({MATCH_ALL})
 
     def __init__(self, coordinator: AdhdtaskerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)

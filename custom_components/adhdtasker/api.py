@@ -49,7 +49,17 @@ class AdhdtaskerApiClient:
                     if resp.status >= 400:
                         text = await resp.text()
                         raise AdhdtaskerError(f"HTTP {resp.status}: {text[:200]}")
-                    return await resp.json()
+                    try:
+                        data = await resp.json(content_type=None)
+                    except (ValueError, aiohttp.ContentTypeError) as err:
+                        raise AdhdtaskerError(
+                            "ADHDTasker returned a non-JSON response."
+                        ) from err
+                    if not isinstance(data, dict):
+                        raise AdhdtaskerError(
+                            "ADHDTasker returned an unexpected (non-object) response."
+                        )
+                    return data
         except AdhdtaskerError:
             raise
         except aiohttp.ClientError as err:

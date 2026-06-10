@@ -44,10 +44,12 @@ class AdhdtaskerConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             key = user_input[CONF_API_KEY].strip()
             base = (user_input.get(CONF_BASE_URL) or DEFAULT_API_URL).strip()
-            await self.async_set_unique_id(_key_uid(key))
-            self._abort_if_unique_id_configured()
-            family = await self._validate(key, base, errors)
-            if family is not None:
+            state = await self._validate(key, base, errors)
+            if state is not None:
+                # Prefer a stable family id so rotating the API key keeps the same entry.
+                await self.async_set_unique_id(state.get("familyId") or _key_uid(key))
+                self._abort_if_unique_id_configured()
+                family = state.get("family") or "ADHDTasker"
                 return self.async_create_entry(
                     title=family, data={CONF_API_KEY: key, CONF_BASE_URL: base}
                 )
@@ -85,18 +87,16 @@ class AdhdtaskerConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _validate(
         self, key: str, base: str, errors: dict[str, str]
-    ) -> str | None:
-        """Return the family name on success, else populate errors and return None."""
+    ) -> dict | None:
+        """Return the board-state dict on success, else populate errors and return None."""
         session = async_get_clientsession(self.hass)
         api = AdhdtaskerApiClient(session, base, key)
         try:
-            state = await api.get_state()
+            return await api.get_state()
         except AdhdtaskerAuthError:
             errors["base"] = "invalid_auth"
         except AdhdtaskerError:
             errors["base"] = "cannot_connect"
-        else:
-            return state.get("family") or "ADHDTasker"
         return None
 
     @staticmethod
