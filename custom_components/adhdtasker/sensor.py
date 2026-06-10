@@ -124,7 +124,7 @@ class KidSensor(AdhdtaskerEntity, SensorEntity):
         self._attr_name = f"ADHDTasker {kid} {suffix}"
         self._attr_unique_id = f"{entry.entry_id}_{slugify(kid)}_{field}"
 
-    def _entry(self) -> dict[str, Any] | None:
+    def _row(self) -> dict[str, Any] | None:
         for k in (self.coordinator.data or {}).get("leaderboard", []):
             if (k.get("name") or "") == self._kid:
                 return k
@@ -132,12 +132,12 @@ class KidSensor(AdhdtaskerEntity, SensorEntity):
 
     @property
     def native_value(self) -> int | None:
-        row = self._entry()
+        row = self._row()
         return row.get(self._field) if row else None
 
     @property
     def available(self) -> bool:
-        return super().available and self._entry() is not None
+        return super().available and self._row() is not None
 
 
 class LastEventSensor(AdhdtaskerEntity, SensorEntity):
