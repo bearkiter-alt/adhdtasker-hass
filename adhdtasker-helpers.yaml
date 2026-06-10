@@ -1,0 +1,104 @@
+# ADHDTasker — OPTIONAL composer (helpers + scripts)
+# The dashboard works without this. Add it only if you want to compose a task with
+# fields (type/onerousness/minutes/assignee) or send a custom ping FROM the dashboard.
+#
+# Install: drop this into a Home Assistant *package* (configuration.yaml:
+#   homeassistant:
+#     packages: !include_dir_named packages
+# then save as packages/adhdtasker.yaml), or split the blocks into your
+# input_text:/input_select:/input_number:/script: files. Restart/reload, then add the
+# Lovelace cards at the bottom to a dashboard view.
+
+input_text:
+  adhdtasker_task:
+    name: New task
+    max: 100
+    icon: mdi:clipboard-plus-outline
+  adhdtasker_assignee:
+    name: Assignee (blank = anyone)
+    max: 50
+    icon: mdi:account
+  adhdtasker_ping:
+    name: Ping message
+    max: 120
+    icon: mdi:message-text
+
+input_select:
+  adhdtasker_type:
+    name: Type
+    options:
+      - ONEOFF
+      - DAILY
+      - WEEKLY
+      - FORTNIGHTLY
+      - MONTHLY
+      - INTERRUPT
+    initial: ONEOFF
+    icon: mdi:calendar-sync
+
+input_number:
+  adhdtasker_onerousness:
+    name: Onerousness
+    min: 1
+    max: 10
+    step: 1
+    initial: 3
+    mode: slider
+    icon: mdi:emoticon-sick-outline
+  adhdtasker_minutes:
+    name: Minutes
+    min: 0
+    max: 120
+    step: 5
+    initial: 10
+    mode: box
+    unit_of_measurement: min
+
+script:
+  adhdtasker_add_task:
+    alias: ADHDTasker Add Task (from form)
+    icon: mdi:plus
+    sequence:
+      - condition: template
+        value_template: "{{ states('input_text.adhdtasker_task') | trim != '' }}"
+      - action: adhdtasker.add_task
+        data:
+          title: "{{ states('input_text.adhdtasker_task') }}"
+          type: "{{ states('input_select.adhdtasker_type') }}"
+          onerousness: "{{ states('input_number.adhdtasker_onerousness') | int }}"
+          minutes: "{{ states('input_number.adhdtasker_minutes') | int }}"
+          assignee: "{{ states('input_text.adhdtasker_assignee') }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.adhdtasker_task
+        data:
+          value: ""
+    mode: single
+
+  adhdtasker_ping:
+    alias: ADHDTasker Ping (from form)
+    icon: mdi:bell
+    sequence:
+      - action: adhdtasker.ping
+        data:
+          title: Family ping
+          message: "{{ states('input_text.adhdtasker_ping') }}"
+    mode: single
+
+# ── Lovelace cards — add these to a dashboard view (e.g. a second "Add" view) ──
+# - type: entities
+#   title: Add a task
+#   entities:
+#     - input_text.adhdtasker_task
+#     - input_select.adhdtasker_type
+#     - input_number.adhdtasker_onerousness
+#     - input_number.adhdtasker_minutes
+#     - input_text.adhdtasker_assignee
+#     - entity: script.adhdtasker_add_task
+#       name: ➕ Add task to the board
+# - type: entities
+#   title: Ping the family
+#   entities:
+#     - input_text.adhdtasker_ping
+#     - entity: script.adhdtasker_ping
+#       name: 🔔 Send ping

@@ -1,11 +1,10 @@
-# ADHDTasker — example Lovelace dashboard
-# Paste into a new dashboard: Settings → Dashboards → Add dashboard → (open it) →
-# Edit → ⋮ → Raw configuration editor → replace with this.
+# ADHDTasker — dashboard (built on the native integration)
+# New dashboard → Edit → ⋮ → Raw configuration editor → replace all with this.
 #
 # Entity IDs assume a single ADHDTasker family (sensor.adhdtasker_*, todo.adhdtasker_board).
-# If you have more than one family, the second gets a _2 suffix — adjust below.
-# Note: `perform-action` / `perform_action` is HA 2024.8+. On older cores use
-# `call-service` / `service` instead.
+# A second family's entities get a _2 suffix — adjust if needed.
+# `perform-action` / `perform_action` is HA 2024.8+ (use call-service / service on older cores).
+# For a fielded "add task / ping" composer, see ha/adhdtasker-helpers.yaml.
 
 title: ADHDTasker
 views:
@@ -13,14 +12,15 @@ views:
     path: chores
     icon: mdi:broom
     type: sections
-    max_columns: 2
+    max_columns: 3
     sections:
+      # ── Board ─────────────────────────────────────────────
       - type: grid
         cards:
           - type: heading
             heading: Family board
             icon: mdi:clipboard-check-multiple-outline
-          # Add a chore by typing; tick one off to complete it and award points.
+          # Type to add a task · tick to complete (awards points) · rename · delete.
           - type: todo-list
             entity: todo.adhdtasker_board
           - type: horizontal-stack
@@ -43,11 +43,22 @@ views:
                   target:
                     entity_id: button.adhdtasker_refresh
 
+      # ── At a glance ───────────────────────────────────────
       - type: grid
         cards:
           - type: heading
             heading: At a glance
             icon: mdi:chart-box-outline
+          - type: conditional
+            conditions:
+              - condition: numeric_state
+                entity: sensor.adhdtasker_pending_approval
+                above: 0
+            card:
+              type: markdown
+              content: |
+                ### ⏳ {{ states('sensor.adhdtasker_pending_approval') }} waiting for approval
+                Tick them off on the board to approve and award the points.
           - type: gauge
             entity: sensor.adhdtasker_open_tasks
             name: Open tasks
@@ -56,28 +67,39 @@ views:
             needle: false
             severity:
               green: 0
-              yellow: 5
+              yellow: 6
               red: 12
-          - type: entities
+          - type: glance
+            show_name: true
+            show_state: true
+            columns: 3
             entities:
+              - entity: sensor.adhdtasker_open_tasks
+                name: Open
               - entity: sensor.adhdtasker_pending_approval
-                name: Waiting for approval
-                icon: mdi:clipboard-check-outline
+                name: To approve
               - entity: sensor.adhdtasker_last_event
                 name: Last event
-                icon: mdi:bell-ring-outline
+
+      # ── Leaderboard + activity ────────────────────────────
+      - type: grid
+        cards:
+          - type: heading
+            heading: Leaderboard
+            icon: mdi:trophy-outline
           - type: markdown
-            title: Leaderboard
-            content: >-
-              {% set lb = state_attr('sensor.adhdtasker_open_tasks',
-              'leaderboard') or [] %} {% if lb %}
-
-              | # | Who | Points | Bank |
-              |---|-----|-------:|-----:|
-              {% for k in lb %}| {{ loop.index }} | {{ k.name }} | {{ k.lifetime
-              }} | {{ k.balance }} |
-              {% endfor %}
-              {% else %}
-
-              _No profiles yet._
-              {% endif %}
+            content: |
+              {% set lb = state_attr('sensor.adhdtasker_open_tasks', 'leaderboard') or [] %}{% if lb %}| # | Who | Points | Bank |
+              | :-- | :-- | --: | --: |
+              {% for k in lb %}| {{ loop.index }} | {{ k.name }} | {{ k.lifetime }} | {{ k.balance }} |
+              {% endfor %}{% else %}_No profiles yet._{% endif %}
+          - type: heading
+            heading: Recent activity
+            icon: mdi:history
+          - type: logbook
+            hours_to_show: 48
+            entities:
+              - todo.adhdtasker_board
+              - sensor.adhdtasker_last_event
+              - sensor.adhdtasker_open_tasks
+              - sensor.adhdtasker_pending_approval
