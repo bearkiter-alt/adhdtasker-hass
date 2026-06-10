@@ -59,7 +59,8 @@ views:
               type: markdown
               content: |
                 ### ⏳ {{ states('sensor.FAMILY_adhdtasker_pending_approval') }} waiting for approval
-                Tick them off on the board to approve and award the points.
+                Tick them off on the board to approve and award the points —
+                or [open the Approvals tab →](https://app.adhdtasker.com/?tab=approvals)
           - type: gauge
             entity: sensor.FAMILY_adhdtasker_open_tasks
             name: Open tasks
@@ -79,6 +80,9 @@ views:
                 name: Open
               - entity: sensor.FAMILY_adhdtasker_pending_approval
                 name: To approve
+                tap_action:
+                  action: url
+                  url_path: https://app.adhdtasker.com/?tab=approvals
               - entity: sensor.FAMILY_adhdtasker_last_event
                 name: Last event
 
