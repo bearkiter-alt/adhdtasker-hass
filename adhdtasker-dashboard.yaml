@@ -15,15 +15,23 @@ views:
     type: sections
     max_columns: 3
     sections:
-      # ── Board ─────────────────────────────────────────────
+      # ── Board: every open chore as a tap-through link, with its steps as ☐/☑ ──
+      # Tapping a chore opens it in the web app (scrolled-to + highlighted), where the
+      # steps are tickable. Steps shown here are read-only.
       - type: grid
         cards:
           - type: heading
             heading: Family board
             icon: mdi:clipboard-check-multiple-outline
-          # Type to add a task · tick to complete (awards points) · rename · delete.
-          - type: todo-list
-            entity: todo.FAMILY_adhdtasker_board
+          - type: markdown
+            content: |
+              {% set ts = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'tasks') or [] %}{% if ts %}
+              {% for t in ts %}- **[{{ t.title }}](https://app.adhdtasker.com/?task={{ t.id }})**{{ ' · ' ~ t.assignee if t.assignee }}{{ ' · ' ~ t.points ~ ' pts' if t.points }}{{ ' · ⏳ approval' if t.status == 'PENDING_APPROVAL' }}{{ ' · ▶ in progress' if t.status == 'IN_PROGRESS' }}
+              {% for s in t.steps or [] %}    - {{ '☑' if s.done else '☐' }} {{ s.text }}
+              {% endfor %}{% endfor %}{% else %}_Board is clear!_ 🎉{% endif %}
+          # Prefer interactive whole-task ticking instead? Swap the markdown card above for:
+          #   - type: todo-list
+          #     entity: todo.FAMILY_adhdtasker_board
           - type: horizontal-stack
             cards:
               - type: button
@@ -59,8 +67,7 @@ views:
               type: markdown
               content: |
                 ### ⏳ {{ states('sensor.FAMILY_adhdtasker_pending_approval') }} waiting for approval
-                Tick them off on the board to approve and award the points —
-                or [open the Approvals tab →](https://app.adhdtasker.com/?tab=approvals)
+                [Open the Approvals tab →](https://app.adhdtasker.com/?tab=approvals)
           - type: gauge
             entity: sensor.FAMILY_adhdtasker_open_tasks
             name: Open tasks
@@ -85,18 +92,6 @@ views:
                   url_path: https://app.adhdtasker.com/?tab=approvals
               - entity: sensor.FAMILY_adhdtasker_last_event
                 name: Last event
-
-      # ── Tap-through task list (links open the task in the web app) ──
-      - type: grid
-        cards:
-          - type: heading
-            heading: Open chores — tap to open
-            icon: mdi:open-in-new
-          - type: markdown
-            content: |
-              {% set ts = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'tasks') or [] %}{% if ts %}
-              {% for t in ts %}- [{{ t.title }}](https://app.adhdtasker.com/?task={{ t.id }}){{ ' · ' ~ t.assignee if t.assignee }}{{ ' · ' ~ t.points ~ ' pts' if t.points }}{{ ' · ⏳ approval' if t.status == 'PENDING_APPROVAL' }}
-              {% endfor %}{% else %}_Board is clear!_ 🎉{% endif %}
 
       # ── Leaderboard + activity ────────────────────────────
       - type: grid

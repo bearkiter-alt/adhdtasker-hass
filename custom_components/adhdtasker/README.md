@@ -20,7 +20,8 @@ It talks to the same family‑scoped inbound API documented at
 
 **Sensors**
 - `sensor.<family>_adhdtasker_open_tasks` — open task count; attributes: `todo`, `in_progress`,
-  `pending_approval`, the full `tasks` list, and the `leaderboard`.
+  `pending_approval`, the full `tasks` list (each task incl. its checkable `steps`), and the
+  `leaderboard`.
 - `sensor.<family>_adhdtasker_pending_approval` — tasks waiting for a parent.
 - `sensor.<family>_adhdtasker_<name>_points` / `_balance` — one pair per profile (lifetime + bank).
 - `sensor.<family>_adhdtasker_last_event` — the most recent webhook event (state = event name,

@@ -20,7 +20,9 @@ family-scoped API documented at <https://adhdtasker.com/home-assistant.html>. No
 
 **Sensors**
 - `sensor.<family>_adhdtasker_open_tasks` — open count; attributes `todo`, `in_progress`,
-  `pending_approval`, the full `tasks` list, and the `leaderboard`.
+  `pending_approval`, the full `tasks` list (each task incl. its checkable `steps`), and the
+  `leaderboard`. The example dashboard renders tasks as tap-through links with their steps
+  as read-only ☐/☑.
 - `sensor.<family>_adhdtasker_pending_approval` — tasks waiting for a parent.
 - `sensor.<family>_adhdtasker_<name>_points` / `_balance` — one pair per profile.
 - `sensor.<family>_adhdtasker_last_event` — most recent webhook event (state = event, attrs = payload).
