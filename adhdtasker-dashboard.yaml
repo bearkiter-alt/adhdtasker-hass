@@ -23,10 +23,11 @@ views:
           - type: heading
             heading: Family board
             icon: mdi:clipboard-check-multiple-outline
+          # In-progress chores float to the top; everything sorts by points (highest first).
           - type: markdown
             content: |
-              {% set ts = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'tasks') or [] %}{% if ts %}
-              {% for t in ts %}- **[{{ t.title }}](https://app.adhdtasker.com/?task={{ t.id }})**{{ ' · ' ~ t.assignee if t.assignee }}{{ ' · ' ~ t.points ~ ' pts' if t.points }}{{ ' · ⏳ approval' if t.status == 'PENDING_APPROVAL' }}{{ ' · ▶ in progress' if t.status == 'IN_PROGRESS' }}
+              {% set ts = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'tasks') or [] %}{% set ip = ts | selectattr('status','equalto','IN_PROGRESS') | sort(attribute='points', reverse=true) | list %}{% set rest = ts | rejectattr('status','equalto','IN_PROGRESS') | sort(attribute='points', reverse=true) | list %}{% set ordered = ip + rest %}{% if ordered %}
+              {% for t in ordered %}- **[{{ t.title }}](https://app.adhdtasker.com/?task={{ t.id }})**{{ ' · ' ~ t.assignee if t.assignee }}{{ ' · ' ~ t.points ~ ' pts' if t.points }}{{ ' · ⏳ approval' if t.status == 'PENDING_APPROVAL' }}{{ ' · ▶ in progress' if t.status == 'IN_PROGRESS' }}
               {% for s in t.steps or [] %}    - {{ '☑' if s.done else '☐' }} {{ s.text }}
               {% endfor %}{% endfor %}{% else %}_Board is clear!_ 🎉{% endif %}
           # Prefer interactive whole-task ticking instead? Swap the markdown card above for:
