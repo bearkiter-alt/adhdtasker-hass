@@ -1,0 +1,61 @@
+# ADHDTasker — announce + lights from the native integration
+#
+# Use this INSTEAD of the blueprint when the app's webhook points at the ADHDTasker
+# integration (web app → Manage → Home Assistant = the integration's webhook URL). The
+# integration fires an `adhdtasker_event` on the HA bus for every chore event; this
+# automation reacts to it — so you don't need the blueprint.
+#
+# Swap the three placeholder entity_ids (TTS engine, speaker, light) for your own, then
+# paste this as a top-level item in automations.yaml.
+
+- id: "1771600000000"
+  alias: ADHDTasker Announce & Lights
+  description: >-
+    TTS + colour-pulse a light on ADHDTasker events (due / completed / reward / ping),
+    driven by the integration's adhdtasker_event.
+  triggers:
+    - trigger: event
+      event_type: adhdtasker_event
+  variables:
+    event: "{{ trigger.event.data.event }}"
+    title: "{{ trigger.event.data.get('task', {}).get('title', 'a task') }}"
+    who: "{{ trigger.event.data.get('profile', {}).get('name', 'Someone') }}"
+    points: "{{ trigger.event.data.get('task', {}).get('points', 0) | int }}"
+    colour: >-
+      {{ {'task.due': [255,152,0], 'task.completed': [67,160,71],
+          'reward.requested': [156,39,176], 'ping': [30,136,229]}.get(event) }}
+    speech: >-
+      {% if event == 'task.due' %}Heads up — {{ title }} is due.
+      {%- elif event == 'task.completed' %}Nice work {{ who }}! You finished {{ title }}{{ ' for ' ~ points ~ ' points' if points > 0 else '' }}.
+      {%- elif event == 'reward.requested' %}{{ who }} wants to redeem a reward.
+      {%- elif event == 'ping' %}{{ who }} pinged the family.
+      {%- endif %}
+  actions:
+    - choose:
+        - conditions: "{{ speech | trim | length > 0 }}"
+          sequence:
+            - action: tts.speak
+              target:
+                entity_id: tts.home_assistant_cloud # ← your TTS engine
+              data:
+                media_player_entity_id: media_player.living_room # ← your speaker
+                message: "{{ speech | trim }}"
+    - if: "{{ colour }}"
+      then:
+        - action: scene.create
+          data:
+            scene_id: adhdtasker_restore
+            snapshot_entities:
+              - light.living_room # ← your light
+        - action: light.turn_on
+          target:
+            entity_id: light.living_room
+          data:
+            rgb_color: "{{ colour }}"
+            brightness_pct: 100
+        - delay: "00:00:03"
+        - action: scene.turn_on
+          target:
+            entity_id: scene.adhdtasker_restore
+  mode: queued
+  max: 25
