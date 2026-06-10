@@ -10,19 +10,23 @@ It talks to the same family‑scoped inbound API documented at
 
 ## What you get
 
-**To‑do entity** — `todo.adhdtasker_board`
+> Entity IDs include your **family name** — replace `<family>` below with your family's slug
+> (lowercase, e.g. the Muir family → `todo.muir_adhdtasker_board`). The exact ids are in
+> **Developer Tools → States**.
+
+**To‑do entity** — `todo.<family>_adhdtasker_board`
 - Shows every open task. **Type a new item** → creates a task. **Tick one off** → completes
   it and awards its points. (There's no rename/delete API, so those are ignored.)
 
 **Sensors**
-- `sensor.adhdtasker_open_tasks` — open task count; attributes: `todo`, `in_progress`,
+- `sensor.<family>_adhdtasker_open_tasks` — open task count; attributes: `todo`, `in_progress`,
   `pending_approval`, the full `tasks` list, and the `leaderboard`.
-- `sensor.adhdtasker_pending_approval` — tasks waiting for a parent.
-- `sensor.adhdtasker_<name>_points` / `_balance` — one pair per profile (lifetime + bank).
-- `sensor.adhdtasker_last_event` — the most recent webhook event (state = event name,
+- `sensor.<family>_adhdtasker_pending_approval` — tasks waiting for a parent.
+- `sensor.<family>_adhdtasker_<name>_points` / `_balance` — one pair per profile (lifetime + bank).
+- `sensor.<family>_adhdtasker_last_event` — the most recent webhook event (state = event name,
   attributes = payload).
 
-**Button** — `button.adhdtasker_refresh` — pull fresh board state between polls.
+**Button** — `button.<family>_adhdtasker_refresh` — pull fresh board state between polls.
 
 **Services** — `adhdtasker.add_task`, `add_interrupt`, `claim_task`, `complete_task`, `ping`.
 

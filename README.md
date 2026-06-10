@@ -9,19 +9,23 @@ family-scoped API documented at <https://adhdtasker.com/home-assistant.html>. No
 
 ## What you get
 
-**To-do entity** — `todo.adhdtasker_board`
+> Entity IDs include your **family name** — replace `<family>` below with your family's slug
+> (lowercase, e.g. the Muir family → `todo.muir_adhdtasker_board`). The exact ids are in
+> **Developer Tools → States**.
+
+**To-do entity** — `todo.<family>_adhdtasker_board`
 - Every open task as a native To-do list. **Type** a new item → creates a task. **Tick** it
   off → completes it (awards points). **Rename** → updates the title. **Delete** → removes it.
   The assignee/points sit in each item's description.
 
 **Sensors**
-- `sensor.adhdtasker_open_tasks` — open count; attributes `todo`, `in_progress`,
+- `sensor.<family>_adhdtasker_open_tasks` — open count; attributes `todo`, `in_progress`,
   `pending_approval`, the full `tasks` list, and the `leaderboard`.
-- `sensor.adhdtasker_pending_approval` — tasks waiting for a parent.
-- `sensor.adhdtasker_<name>_points` / `_balance` — one pair per profile.
-- `sensor.adhdtasker_last_event` — most recent webhook event (state = event, attrs = payload).
+- `sensor.<family>_adhdtasker_pending_approval` — tasks waiting for a parent.
+- `sensor.<family>_adhdtasker_<name>_points` / `_balance` — one pair per profile.
+- `sensor.<family>_adhdtasker_last_event` — most recent webhook event (state = event, attrs = payload).
 
-**Button** — `button.adhdtasker_refresh`.
+**Button** — `button.<family>_adhdtasker_refresh`.
 
 **Services** — `adhdtasker.add_task`, `add_interrupt`, `claim_task`, `complete_task`,
 `approve_task`, `ping`.

@@ -1,8 +1,9 @@
 # ADHDTasker — dashboard (built on the native integration)
 # New dashboard → Edit → ⋮ → Raw configuration editor → replace all with this.
 #
-# Entity IDs assume a single ADHDTasker family (sensor.adhdtasker_*, todo.adhdtasker_board).
-# A second family's entities get a _2 suffix — adjust if needed.
+# IMPORTANT: entity IDs include your family name. Replace FAMILY below with your family's
+# slug — lowercase, e.g. the Muir family => sensor.muir_adhdtasker_open_tasks. The exact ids
+# are in Developer Tools → States. (Find/replace "FAMILY_adhdtasker" → "<yourslug>_adhdtasker".)
 # `perform-action` / `perform_action` is HA 2024.8+ (use call-service / service on older cores).
 # For a fielded "add task / ping" composer, see ha/adhdtasker-helpers.yaml.
 
@@ -22,7 +23,7 @@ views:
             icon: mdi:clipboard-check-multiple-outline
           # Type to add a task · tick to complete (awards points) · rename · delete.
           - type: todo-list
-            entity: todo.adhdtasker_board
+            entity: todo.FAMILY_adhdtasker_board
           - type: horizontal-stack
             cards:
               - type: button
@@ -41,7 +42,7 @@ views:
                   action: perform-action
                   perform_action: button.press
                   target:
-                    entity_id: button.adhdtasker_refresh
+                    entity_id: button.FAMILY_adhdtasker_refresh
 
       # ── At a glance ───────────────────────────────────────
       - type: grid
@@ -52,15 +53,15 @@ views:
           - type: conditional
             conditions:
               - condition: numeric_state
-                entity: sensor.adhdtasker_pending_approval
+                entity: sensor.FAMILY_adhdtasker_pending_approval
                 above: 0
             card:
               type: markdown
               content: |
-                ### ⏳ {{ states('sensor.adhdtasker_pending_approval') }} waiting for approval
+                ### ⏳ {{ states('sensor.FAMILY_adhdtasker_pending_approval') }} waiting for approval
                 Tick them off on the board to approve and award the points.
           - type: gauge
-            entity: sensor.adhdtasker_open_tasks
+            entity: sensor.FAMILY_adhdtasker_open_tasks
             name: Open tasks
             min: 0
             max: 20
@@ -74,11 +75,11 @@ views:
             show_state: true
             columns: 3
             entities:
-              - entity: sensor.adhdtasker_open_tasks
+              - entity: sensor.FAMILY_adhdtasker_open_tasks
                 name: Open
-              - entity: sensor.adhdtasker_pending_approval
+              - entity: sensor.FAMILY_adhdtasker_pending_approval
                 name: To approve
-              - entity: sensor.adhdtasker_last_event
+              - entity: sensor.FAMILY_adhdtasker_last_event
                 name: Last event
 
       # ── Leaderboard + activity ────────────────────────────
@@ -89,7 +90,7 @@ views:
             icon: mdi:trophy-outline
           - type: markdown
             content: |
-              {% set lb = state_attr('sensor.adhdtasker_open_tasks', 'leaderboard') or [] %}{% if lb %}| # | Who | Points | Bank |
+              {% set lb = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'leaderboard') or [] %}{% if lb %}| # | Who | Points | Bank |
               | :-- | :-- | --: | --: |
               {% for k in lb %}| {{ loop.index }} | {{ k.name }} | {{ k.lifetime }} | {{ k.balance }} |
               {% endfor %}{% else %}_No profiles yet._{% endif %}
@@ -99,7 +100,7 @@ views:
           - type: logbook
             hours_to_show: 48
             entities:
-              - todo.adhdtasker_board
-              - sensor.adhdtasker_last_event
-              - sensor.adhdtasker_open_tasks
-              - sensor.adhdtasker_pending_approval
+              - todo.FAMILY_adhdtasker_board
+              - sensor.FAMILY_adhdtasker_last_event
+              - sensor.FAMILY_adhdtasker_open_tasks
+              - sensor.FAMILY_adhdtasker_pending_approval
