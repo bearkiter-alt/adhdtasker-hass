@@ -10,7 +10,7 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-_TIMEOUT = 20
+_TIMEOUT = 30
 
 
 class AdhdtaskerError(Exception):

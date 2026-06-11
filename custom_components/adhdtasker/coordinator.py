@@ -36,14 +36,30 @@ class AdhdtaskerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.api = api
         self.entry = entry
         self.last_event: dict[str, Any] | None = None
+        self._consecutive_failures = 0
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
-            return await self.api.get_state()
+            data = await self.api.get_state()
         except AdhdtaskerAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except AdhdtaskerError as err:
+            # The Firebase backend occasionally cold-starts past the request
+            # timeout; don't flap every entity to unavailable over one bad
+            # poll. Serve the last good board for up to two consecutive
+            # failures, then surface the outage.
+            self._consecutive_failures += 1
+            if self.data is not None and self._consecutive_failures <= 2:
+                _LOGGER.warning(
+                    "ADHDTasker poll failed (%s consecutive, tolerating up to 2):"
+                    " %s; keeping last known board state",
+                    self._consecutive_failures,
+                    err,
+                )
+                return self.data
             raise UpdateFailed(str(err)) from err
+        self._consecutive_failures = 0
+        return data
 
     def set_last_event(self, payload: dict[str, Any]) -> None:
         """Store the latest webhook payload and notify entities (e.g. last-event sensor)."""
