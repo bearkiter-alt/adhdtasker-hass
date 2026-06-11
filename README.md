@@ -57,6 +57,10 @@ in the app to reject spoofed POSTs.
 A ready-to-paste Lovelace dashboard is in [`adhdtasker-dashboard.yaml`](adhdtasker-dashboard.yaml).
 
 ## Notes
+- **The API key is full family automation access** — it can add, edit, delete, complete and
+  approve tasks (completing/approving awards points). Treat it like an admin password. Revoke
+  by regenerating in the web app (Manage → Inbound API); the old key dies instantly — then
+  re-enter the new key when HA prompts for reauth.
 - Points are awarded server-side on complete/approve; the integration never writes scores.
 - Completing with no profile awards 0 points — use the `complete_task`/`approve_task` service
   with a `profile`, or assign/claim the task first, to credit a kid.
