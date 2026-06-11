@@ -40,7 +40,9 @@
               data:
                 media_player_entity_id: media_player.living_room # ← your speaker
                 message: "{{ speech | trim }}"
-    - if: "{{ colour }}"
+    # NB: must render a real boolean — "{{ colour }}" renders the list itself, which HA's
+    # template condition treats as False, so the lights branch would never fire.
+    - if: "{{ colour is not none and colour | count == 3 }}"
       then:
         - action: scene.create
           data:
