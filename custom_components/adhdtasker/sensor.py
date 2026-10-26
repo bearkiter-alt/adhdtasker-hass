@@ -61,7 +61,7 @@ class OpenTasksSensor(AdhdtaskerEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     # The board/leaderboard are large and change often — keep them live for the
     # dashboard but out of the recorder so history doesn't bloat (counts are kept).
-    _unrecorded_attributes = frozenset({"tasks", "leaderboard"})
+    _unrecorded_attributes = frozenset({"tasks", "leaderboard", "rewards"})
 
     def __init__(self, coordinator: AdhdtaskerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
@@ -82,6 +82,9 @@ class OpenTasksSensor(AdhdtaskerEntity, SensorEntity):
             "pending_approval": counts.get("pending_approval"),
             "tasks": data.get("tasks", []),
             "leaderboard": data.get("leaderboard", []),
+            # Bank catalog, cheapest first. Empty on older backends, so a dashboard
+            # card should treat "missing" and "none configured" the same way.
+            "rewards": data.get("rewards", []),
         }
 
 
