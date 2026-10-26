@@ -1,0 +1,284 @@
+# ADHDTasker — Family dashboard
+# ============================================================================
+# New dashboard -> Edit -> ⋮ -> Raw configuration editor -> replace all with this.
+#
+# SETUP IS ONE FIND/REPLACE: swap "FAMILY_adhdtasker" for your family's slug, e.g.
+# the Muir family => "muir_adhdtasker". The exact ids are in Developer Tools -> States
+# (entity ids ARE prefixed with the family name).
+#
+# CORE CARDS ONLY, with ONE clearly-marked optional extra. Everything works on a stock
+# Home Assistant with no helpers and no automations. Everything per-kid is rendered from
+# the `leaderboard` and `tasks` attributes of ONE sensor, so adding or renaming a child
+# needs no dashboard edit.
+#
+# OPTIONAL: the "⏳ Waiting on you" card on the Family view uses HACS **auto-entities**
+# (thomasloven/lovelace-auto-entities) to put a real Approve button on each pending chore.
+# Chores are not entities — they live in a sensor attribute — so that card uses
+# auto-entities' `template:` filter to emit call-service rows. Don't have auto-entities?
+# Delete that one card; the Parent view lists the same approvals in plain markdown.
+#
+# Entities used (that's the whole list):
+#   sensor.FAMILY_adhdtasker_open_tasks        <- board + leaderboard live here
+#   sensor.FAMILY_adhdtasker_pending_approval
+#   sensor.FAMILY_adhdtasker_last_event
+#   todo.FAMILY_adhdtasker_board
+#   button.FAMILY_adhdtasker_refresh
+#   service: adhdtasker.ping
+#
+# Requires integration >= the build that adds `dueAt` to the board (for the
+# Overdue / Today / Upcoming grouping). Older versions still work — every chore
+# simply lands in "No set time".
+# ============================================================================
+
+title: ADHDTasker
+views:
+  # ───────────────────────────────── FAMILY ─────────────────────────────────
+  - title: Family
+    path: family
+    icon: mdi:home-heart
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Today at a glance
+            icon: mdi:eye-outline
+
+          - type: markdown
+            content: |
+              {% set s = 'sensor.FAMILY_adhdtasker_open_tasks' %}
+              {% set open = states(s) | int(0) %}
+              {% set p = state_attr(s, 'pending_approval') | int(0) %}
+              {% set ip = state_attr(s, 'in_progress') | int(0) %}
+              ## {{ open }} open {{ 'chore' if open == 1 else 'chores' }}
+              {{ state_attr(s, 'todo') | int(0) }} waiting · {{ ip }} in progress{% if p > 0 %} · **⏳ {{ p }} to approve**{% endif %}
+
+          # OPTIONAL (needs HACS "auto-entities" by thomasloven): one real Approve button
+          # per pending chore. Chores aren't entities — they live in the `tasks` attribute —
+          # so this uses auto-entities' template filter to emit call-service rows.
+          # `show_empty: false` hides the whole card when nothing is waiting.
+          # No auto-entities? Delete this card; the Parent view has a plain-markdown fallback.
+          - type: custom:auto-entities
+            show_empty: false
+            card:
+              type: entities
+              title: ⏳ Waiting on you
+            filter:
+              template: |
+                {% for t in state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'tasks') or []
+                   if t.status == 'PENDING_APPROVAL' %}
+                  {{ {'type': 'call-service',
+                      'name': t.title,
+                      'secondary': (t.claimedBy or t.assignee or 'someone') ~ (' · ' ~ t.points ~ ' pts' if t.points else ''),
+                      'icon': 'mdi:check-decagram',
+                      'action_name': 'Approve',
+                      'service': 'adhdtasker.approve_task',
+                      'service_data': {'task_id': t.id}} }},
+                {% endfor %}
+
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: Ping everyone
+                icon: mdi:bell-ring
+                tap_action:
+                  action: perform-action
+                  perform_action: adhdtasker.ping
+                  data:
+                    title: Chores
+                    message: Check the board!
+              - type: button
+                name: Refresh
+                icon: mdi:refresh
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target:
+                    entity_id: button.FAMILY_adhdtasker_refresh
+
+      # ── Scoreboard ──────────────────────────────────────────────────────
+      - type: grid
+        cards:
+          - type: heading
+            heading: Scoreboard
+            icon: mdi:trophy-outline
+
+          - type: markdown
+            content: |
+              {% set lb = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'leaderboard') or [] %}
+              {% if lb %}
+              {% set top = lb | map(attribute='lifetime') | max %}
+              {% for k in lb %}
+              {%- set medal = ['🥇', '🥈', '🥉'][loop.index0] if loop.index0 < 3 else '▫️' -%}
+              {%- set filled = ((k.lifetime / top) * 12) | round(0) | int if top > 0 else 0 -%}
+              {{ medal }} **{{ k.name }}** — {{ k.balance }} to spend
+              `{{ '█' * filled }}{{ '░' * (12 - filled) }}` {{ k.lifetime }} earned
+              {% endfor %}
+              {% else %}
+              _No profiles yet._
+              {% endif %}
+
+      # ── The board, grouped by when it is actually due ───────────────────
+      - type: grid
+        column_span: 2
+        cards:
+          - type: heading
+            heading: The board
+            icon: mdi:clipboard-list-outline
+
+          - type: markdown
+            content: |
+              {% set ts = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'tasks') or [] %}
+              {% set ns = namespace(over=[], today=[], soon=[], undated=[]) %}
+              {% for t in ts if t.status != 'PENDING_APPROVAL' %}
+                {% if t.dueAt %}
+                  {% set d = as_datetime(t.dueAt) | as_local %}
+                  {% if d < now() %}
+                    {% set ns.over = ns.over + [(d, t)] %}
+                  {% elif d.date() == now().date() %}
+                    {% set ns.today = ns.today + [(d, t)] %}
+                  {% else %}
+                    {% set ns.soon = ns.soon + [(d, t)] %}
+                  {% endif %}
+                {% else %}
+                  {% set ns.undated = ns.undated + [(none, t)] %}
+                {% endif %}
+              {% endfor %}
+              {%- macro row(d, t) -%}
+              - {% if t.status == 'IN_PROGRESS' %}▶{% else %}☐{% endif %} **[{{ t.title }}](https://app.adhdtasker.com/?task={{ t.id }})**{% if d %} · {{ d.strftime('%-I:%M %p') | lower }}{% endif %}{% if t.assignee %} · {{ t.assignee }}{% else %} · _anyone_{% endif %}{% if t.points %} · {{ t.points }} pts{% endif %}
+              {% for s in t.steps %}    - {{ '☑' if s.done else '☐' }} {{ s.text }}
+              {% endfor %}
+              {%- endmacro -%}
+              {%- if ns.over %}
+
+              ### ⚠️ Overdue
+              {% for d, t in ns.over | sort(attribute='0') %}{{ row(d, t) }}{% endfor %}
+              {%- endif %}
+              {%- if ns.today %}
+
+              ### ☀️ Later today
+              {% for d, t in ns.today | sort(attribute='0') %}{{ row(d, t) }}{% endfor %}
+              {%- endif %}
+              {%- if ns.soon %}
+
+              ### 📅 Coming up
+              {% for d, t in ns.soon | sort(attribute='0') %}{{ row(d, t) }}{% endfor %}
+              {%- endif %}
+              {%- if ns.undated %}
+
+              ### 🗓️ No set time
+              {% for d, t in ns.undated %}{{ row(d, t) }}{% endfor %}
+              {%- endif %}
+              {%- if not (ns.over or ns.today or ns.soon or ns.undated) %}
+              **The board is clear.** 🎉
+              {%- endif %}
+
+  # ────────────────────────────────── KIDS ──────────────────────────────────
+  - title: Kids
+    path: kids
+    icon: mdi:account-child-outline
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        column_span: 3
+        cards:
+          - type: heading
+            heading: Who has what
+            icon: mdi:account-multiple-outline
+
+          - type: markdown
+            content: |
+              {% set s = 'sensor.FAMILY_adhdtasker_open_tasks' %}
+              {% set lb = state_attr(s, 'leaderboard') or [] %}
+              {% set ts = state_attr(s, 'tasks') or [] %}
+              {% for k in lb %}
+              {%- set mine = ts | selectattr('assigneeProfileId', 'equalto', k.id) | list -%}
+              {%- set doing = mine | selectattr('status', 'equalto', 'IN_PROGRESS') | list | count %}
+
+              ### {{ k.name }} — {{ k.balance }} pts
+              [Open {{ k.name }}'s board](https://app.adhdtasker.com/?kid={{ k.id }}) · {{ mine | count }} assigned{% if doing %} · ▶ {{ doing }} on the go{% endif %}
+              {% if mine %}
+              {% for t in mine -%}
+              - {% if t.status == 'IN_PROGRESS' %}▶{% else %}☐{% endif %} [{{ t.title }}](https://app.adhdtasker.com/?task={{ t.id }}){% if t.dueAt %} · {{ (as_datetime(t.dueAt) | as_local).strftime('%-I:%M %p') | lower }}{% endif %}{% if t.points %} · {{ t.points }} pts{% endif %}
+              {% endfor %}
+              {%- else %}
+
+              _Nothing assigned._
+              {%- endif %}
+              {%- endfor %}
+
+      - type: grid
+        column_span: 3
+        cards:
+          - type: heading
+            heading: Up for grabs
+            icon: mdi:hand-wave-outline
+
+          - type: markdown
+            content: |
+              {% set ts = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'tasks') or [] %}
+              {% set free = ts | rejectattr('status', 'equalto', 'PENDING_APPROVAL') | selectattr('assigneeProfileId', 'equalto', '') | list %}
+              {% if free %}
+              Nobody owns these yet — first in, best dressed.
+
+              {% for t in free | sort(attribute='points', reverse=true) %}
+              - ☐ **[{{ t.title }}](https://app.adhdtasker.com/?task={{ t.id }})**{% if t.points %} · {{ t.points }} pts{% endif %}
+              {% endfor %}
+              {% else %}
+              _Every chore has a name on it._
+              {% endif %}
+
+  # ───────────────────────────────── PARENT ─────────────────────────────────
+  - title: Parent
+    path: parent
+    icon: mdi:shield-account-outline
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Approvals
+            icon: mdi:check-decagram-outline
+          - type: markdown
+            content: |
+              {% set ts = state_attr('sensor.FAMILY_adhdtasker_open_tasks', 'tasks') or [] %}
+              {% set pend = ts | selectattr('status', 'equalto', 'PENDING_APPROVAL') | list %}
+              {% if pend %}
+              {% for t in pend %}
+              - **[{{ t.title }}](https://app.adhdtasker.com/?tab=approvals)** — {{ t.claimedBy or 'someone' }}{% if t.points %} · {{ t.points }} pts{% endif %}
+              {% endfor %}
+              {% else %}
+              _Nothing waiting._ ✅
+              {% endif %}
+
+          - type: heading
+            heading: Tick off a chore
+            icon: mdi:clipboard-check-outline
+          # The native to-do entity: ticking an item marks it done in ADHDTasker.
+          - type: todo-list
+            entity: todo.FAMILY_adhdtasker_board
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Activity
+            icon: mdi:pulse
+          - type: entities
+            entities:
+              - entity: sensor.FAMILY_adhdtasker_last_event
+                name: Last thing that happened
+              - entity: sensor.FAMILY_adhdtasker_open_tasks
+                name: Open chores
+              - entity: sensor.FAMILY_adhdtasker_pending_approval
+                name: Awaiting approval
+              - entity: button.FAMILY_adhdtasker_refresh
+                name: Refresh now
+          - type: history-graph
+            hours_to_show: 168
+            title: Open chores, past week
+            entities:
+              - entity: sensor.FAMILY_adhdtasker_open_tasks
+                name: Open

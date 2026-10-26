@@ -9,4 +9,4 @@ chore-and-rewards app.
 - **Webhook push** + `adhdtasker_event` bus event for automations.
 
 Set-up is one step: paste the API key from the web app (**Manage → Inbound API**).
-A ready-made dashboard is included.
+Three ready-made dashboards are included, incl. a four-view **Family Hub** (who's home, routines by time of day, chores, and a Bank showing who can afford what).

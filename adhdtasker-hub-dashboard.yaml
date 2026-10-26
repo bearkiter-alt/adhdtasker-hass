@@ -1,0 +1,358 @@
+# ADHDTasker — Family Hub
+# ============================================================================
+# A family command centre in the spirit of HA-Family-Hub, built on ADHDTasker's
+# own data. Four views: Today, Chores, Bank, Parent.
+#
+# SETUP IS ONE FIND/REPLACE: swap "FAMILY_adhdtasker" for your family's slug, e.g.
+# the Muir family => "muir_adhdtasker". Exact ids are in Developer Tools -> States.
+# Nothing is per-child: people, chores and rewards are all generated from the
+# `leaderboard`, `tasks` and `rewards` attributes of ONE sensor.
+#
+# REQUIRES: Mushroom + auto-entities (both HACS).
+# Presence is OPTIONAL — if a `person.<name>` entity exists matching a profile name
+# it shows home/out, otherwise that bit is simply left off.
+# The Bank catalog needs integration >= v0.1.5 (the `rewards` attribute). On older
+# versions that one card hides itself and everything else still works.
+#
+# !! TRAP, if you edit a template: auto-entities does
+# !!   typeof result === "string" ? result.split(/[\s,]+/) : result
+# !! so a template that PRINTS its cards is shredded on whitespace into hundreds of
+# !! bogus "entities" (you get a wall of "Configuration error"). Build a list in a
+# !! namespace and emit it ONCE as {{ ns.c }} — the websocket then returns a native
+# !! list and auto-entities uses it untouched. Also: use a `|` literal block, never
+# !! `>-`, which folds the lines back together.
+# ============================================================================
+
+title: Family Hub
+views:
+  # ────────────────────────────────── TODAY ─────────────────────────────────
+  - title: Today
+    path: today
+    icon: mdi:white-balance-sunny
+    type: sections
+    max_columns: 4
+    sections:
+      - type: grid
+        column_span: 4
+        cards:
+          - type: heading
+            heading: Right now
+            icon: mdi:account-multiple-outline
+          - type: custom:mushroom-chips-card
+            grid_options:
+              columns: full
+            alignment: start
+            chips:
+              - type: template
+                entity: sensor.FAMILY_adhdtasker_open_tasks
+                icon: mdi:clipboard-list-outline
+                icon_color: blue
+                content: "{{ states('sensor.FAMILY_adhdtasker_open_tasks') }} open"
+                tap_action:
+                  action: none
+              - type: conditional
+                conditions:
+                  - condition: numeric_state
+                    entity: sensor.FAMILY_adhdtasker_pending_approval
+                    above: 0
+                chip:
+                  type: template
+                  entity: sensor.FAMILY_adhdtasker_pending_approval
+                  icon: mdi:clock-alert-outline
+                  icon_color: orange
+                  content: "{{ states('sensor.FAMILY_adhdtasker_pending_approval') }} to approve"
+                  tap_action:
+                    action: navigate
+                    navigation_path: parent
+              - type: template
+                icon: mdi:bell-ring-outline
+                icon_color: amber
+                content: Ping
+                tap_action:
+                  action: perform-action
+                  perform_action: adhdtasker.ping
+                  data:
+                    title: Chores
+                    message: Check the board!
+              - type: template
+                icon: mdi:refresh
+                icon_color: grey
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target:
+                    entity_id: button.FAMILY_adhdtasker_refresh
+
+          # Who's here and what they're actually doing — Family Hub's "Right Now" bar.
+          - type: custom:auto-entities
+            grid_options:
+              columns: full
+            card:
+              type: grid
+              columns: 3
+              square: false
+            card_param: cards
+            filter:
+              template: |
+                {%- set s = 'sensor.FAMILY_adhdtasker_open_tasks' -%}
+                {%- set ts = state_attr(s,'tasks') or [] -%}
+                {%- set ns = namespace(c=[]) -%}
+                {%- for k in state_attr(s,'leaderboard') or [] -%}
+                {%- set mine = ts | selectattr('assigneeProfileId','equalto',k.id) | list -%}
+                {%- set doing = mine | selectattr('status','equalto','IN_PROGRESS') | list -%}
+                {%- set pe = 'person.' ~ (k.name | lower | replace(' ','_')) -%}
+                {%- set here = states(pe) -%}
+                {%- set nx = namespace(at=none, t=none, late=0) -%}
+                {%- for t in mine if t.dueAt -%}{%- set d = as_datetime(t.dueAt) -%}{%- if d < now() -%}{%- set nx.late = nx.late + 1 -%}{%- endif -%}{%- if nx.at is none or d < nx.at -%}{%- set nx.at = d -%}{%- set nx.t = t -%}{%- endif -%}{%- endfor -%}
+                {%- set busy = doing | count > 0 -%}
+                {%- set what = doing[0].title if busy else (nx.t.title ~ ' at ' ~ (nx.at | as_local).strftime('%-I:%M %p') | lower if nx.t else 'nothing on') -%}
+                {%- set place = ' · home' if here == 'home' else (' · out' if here == 'not_home' else '') -%}
+                {%- set ns.c = ns.c + [{'type':'custom:mushroom-template-card','primary':k.name ~ place,'secondary':what,'icon':('mdi:account-clock' if busy else 'mdi:account-circle'),'icon_color':('green' if busy else ('blue-grey' if here == 'not_home' else 'light-blue')),'badge_icon':('mdi:alert' if nx.late else ''),'badge_color':'red','tap_action':{'action':'url','url_path':'https://app.adhdtasker.com/?kid=' ~ k.id}}] -%}
+                {%- endfor -%}
+                {{ ns.c }}
+
+      # ── Routines, split by part of day the way a household actually runs ──
+      - type: grid
+        column_span: 4
+        cards:
+          - type: heading
+            heading: Routines
+            icon: mdi:sun-clock-outline
+          - type: custom:auto-entities
+            show_empty: false
+            grid_options:
+              columns: full
+            card:
+              type: grid
+              columns: 3
+              square: false
+            card_param: cards
+            filter:
+              template: |
+                {%- set ts = state_attr('sensor.FAMILY_adhdtasker_open_tasks','tasks') or [] -%}
+                {%- set ns = namespace(c=[]) -%}
+                {%- set bands = [('Morning', 0, 12, 'mdi:weather-sunset-up', 'amber'), ('Afternoon', 12, 17, 'mdi:weather-sunny', 'orange'), ('Evening', 17, 24, 'mdi:weather-night', 'indigo')] -%}
+                {%- for label, lo, hi, icon, colour in bands -%}
+                {%- for t in ts if t.status != 'PENDING_APPROVAL' and t.dueAt and lo <= (as_datetime(t.dueAt) | as_local).hour < hi -%}
+                {%- set d = as_datetime(t.dueAt) | as_local -%}
+                {%- set st = t.steps | count -%}
+                {%- set did = t.steps | selectattr('done') | list | count -%}
+                {%- set ns.c = ns.c + [{'type':'custom:mushroom-template-card','primary':t.title,'secondary':label ~ ' · ' ~ d.strftime('%-I:%M %p') | lower ~ ' · ' ~ (t.assignee or 'anyone') ~ (' · ' ~ did ~ '/' ~ st ~ ' steps' if st else ''),'icon':icon,'icon_color':('red' if d < now() else colour),'tap_action':{'action':'url','url_path':'https://app.adhdtasker.com/?task=' ~ t.id}}] -%}
+                {%- endfor -%}
+                {%- endfor -%}
+                {{ ns.c }}
+
+      # ── Only shows when a parent actually has something waiting ──
+      - type: grid
+        column_span: 4
+        cards:
+          - type: custom:auto-entities
+            show_empty: false
+            grid_options:
+              columns: full
+            card:
+              type: entities
+              title: Waiting on you
+              icon: mdi:clock-alert-outline
+            filter:
+              template: |
+                {%- set ns = namespace(c=[]) -%}
+                {%- for t in state_attr('sensor.FAMILY_adhdtasker_open_tasks','tasks') or [] if t.status == 'PENDING_APPROVAL' -%}
+                {%- set ns.c = ns.c + [{'type':'call-service','name':t.title,'icon':'mdi:check-decagram','action_name':'Approve','service':'adhdtasker.approve_task','service_data':{'task_id':t.id}}] -%}
+                {%- endfor -%}
+                {{ ns.c }}
+
+  # ────────────────────────────────── CHORES ────────────────────────────────
+  - title: Chores
+    path: chores
+    icon: mdi:broom
+    type: sections
+    max_columns: 4
+    sections:
+      - type: grid
+        column_span: 4
+        cards:
+          - type: heading
+            heading: Overdue
+            icon: mdi:alert-circle-outline
+            heading_style: subtitle
+          - type: custom:auto-entities
+            show_empty: false
+            grid_options:
+              columns: full
+            card:
+              type: grid
+              columns: 2
+              square: false
+            card_param: cards
+            filter:
+              template: |
+                {%- set ns = namespace(c=[]) -%}
+                {%- for t in state_attr('sensor.FAMILY_adhdtasker_open_tasks','tasks') or [] if t.status != 'PENDING_APPROVAL' and t.dueAt and as_datetime(t.dueAt) < now() -%}
+                {%- set st = t.steps | count -%}
+                {%- set did = t.steps | selectattr('done') | list | count -%}
+                {%- set ns.c = ns.c + [{'type':'custom:mushroom-template-card','primary':t.title,'secondary':(as_datetime(t.dueAt)|as_local).strftime('%-I:%M %p')|lower ~ ' · ' ~ (t.assignee or 'anyone') ~ (' · ' ~ t.points ~ ' pts' if t.points else '') ~ (' · ' ~ did ~ '/' ~ st ~ ' steps' if st else ''),'icon':('mdi:play-circle' if t.status == 'IN_PROGRESS' else 'mdi:alert-circle'),'icon_color':('purple' if t.status == 'IN_PROGRESS' else 'red'),'tap_action':{'action':'url','url_path':'https://app.adhdtasker.com/?task=' ~ t.id}}] -%}
+                {%- endfor -%}
+                {{ ns.c }}
+
+          - type: heading
+            heading: Everything else
+            icon: mdi:clipboard-text-outline
+            heading_style: subtitle
+          - type: custom:auto-entities
+            show_empty: false
+            grid_options:
+              columns: full
+            card:
+              type: grid
+              columns: 2
+              square: false
+            card_param: cards
+            filter:
+              template: |
+                {%- set ns = namespace(c=[]) -%}
+                {%- for t in state_attr('sensor.FAMILY_adhdtasker_open_tasks','tasks') or [] if t.status != 'PENDING_APPROVAL' and (not t.dueAt or as_datetime(t.dueAt) >= now()) -%}
+                {%- set st = t.steps | count -%}
+                {%- set did = t.steps | selectattr('done') | list | count -%}
+                {%- set when = (as_datetime(t.dueAt)|as_local).strftime('%-I:%M %p')|lower ~ ' · ' if t.dueAt else '' -%}
+                {%- set ns.c = ns.c + [{'type':'custom:mushroom-template-card','primary':t.title,'secondary':when ~ (t.assignee or 'anyone') ~ (' · ' ~ t.points ~ ' pts' if t.points else '') ~ (' · ' ~ did ~ '/' ~ st ~ ' steps' if st else ''),'icon':('mdi:play-circle' if t.status == 'IN_PROGRESS' else 'mdi:checkbox-blank-circle-outline'),'icon_color':('purple' if t.status == 'IN_PROGRESS' else 'blue-grey'),'tap_action':{'action':'url','url_path':'https://app.adhdtasker.com/?task=' ~ t.id}}] -%}
+                {%- endfor -%}
+                {{ ns.c }}
+
+          - type: heading
+            heading: Up for grabs
+            icon: mdi:hand-wave-outline
+            heading_style: subtitle
+          - type: custom:auto-entities
+            show_empty: false
+            grid_options:
+              columns: full
+            card:
+              type: grid
+              columns: 3
+              square: false
+            card_param: cards
+            filter:
+              template: |
+                {%- set ns = namespace(c=[]) -%}
+                {%- for t in (state_attr('sensor.FAMILY_adhdtasker_open_tasks','tasks') or []) | rejectattr('status','equalto','PENDING_APPROVAL') | selectattr('assigneeProfileId','equalto','') | sort(attribute='points', reverse=true) -%}
+                {%- set ns.c = ns.c + [{'type':'custom:mushroom-template-card','primary':t.title,'secondary':(t.points ~ ' pts' if t.points else 'no points'),'icon':'mdi:hand-back-right-outline','icon_color':'teal','tap_action':{'action':'url','url_path':'https://app.adhdtasker.com/?task=' ~ t.id}}] -%}
+                {%- endfor -%}
+                {{ ns.c }}
+
+  # ─────────────────────────────────── BANK ─────────────────────────────────
+  - title: Bank
+    path: bank
+    icon: mdi:bank
+    type: sections
+    max_columns: 4
+    sections:
+      - type: grid
+        column_span: 4
+        cards:
+          - type: heading
+            heading: Balances
+            icon: mdi:star-circle-outline
+          - type: custom:auto-entities
+            grid_options:
+              columns: full
+            card:
+              type: grid
+              columns: 3
+              square: false
+            card_param: cards
+            filter:
+              template: |
+                {%- set s = 'sensor.FAMILY_adhdtasker_open_tasks' -%}
+                {%- set rw = state_attr(s,'rewards') or [] -%}
+                {%- set cols = ['amber','light-blue','green','pink','purple','teal'] -%}
+                {%- set ns = namespace(c=[]) -%}
+                {%- for k in state_attr(s,'leaderboard') or [] -%}
+                {%- set afford = rw | selectattr('cost','le',k.balance) | list | count -%}
+                {%- set cheapest = (rw | rejectattr('cost','le',k.balance) | list) -%}
+                {%- set togo = (cheapest[0].cost - k.balance) if cheapest else 0 -%}
+                {#- With no catalog (integration < v0.1.5) say nothing about affordability
+                    rather than claiming "0 rewards", which would just be wrong. -#}
+                {%- set affordable = ' · can afford ' ~ afford ~ (' reward' if afford == 1 else ' rewards') ~ ((' · ' ~ togo ~ ' to the next') if togo > 0 else '') -%}
+                {%- set sub = k.balance ~ ' to spend' ~ (affordable if rw else '') -%}
+                {%- set ns.c = ns.c + [{'type':'custom:mushroom-template-card','primary':k.name,'secondary':sub,'icon':'mdi:piggy-bank','icon_color':cols[loop.index0 % 6],'tap_action':{'action':'url','url_path':'https://app.adhdtasker.com/?tab=bank'}}] -%}
+                {%- endfor -%}
+                {{ ns.c }}
+
+      - type: grid
+        column_span: 4
+        cards:
+          # Hidden along with its card on integrations older than v0.1.5, where there is
+          # no `rewards` attribute — an orphan heading over nothing looks broken.
+          - type: conditional
+            conditions:
+              - condition: template
+                value_template: "{{ (state_attr('sensor.FAMILY_adhdtasker_open_tasks','rewards') or []) | count > 0 }}"
+            card:
+              type: heading
+              heading: What the points buy
+              icon: mdi:gift-outline
+          # Needs integration >= v0.1.5. On older versions `rewards` is missing,
+          # the list comes back empty and this card hides itself.
+          - type: custom:auto-entities
+            show_empty: false
+            grid_options:
+              columns: full
+            card:
+              type: grid
+              columns: 3
+              square: false
+            card_param: cards
+            filter:
+              template: |
+                {%- set s = 'sensor.FAMILY_adhdtasker_open_tasks' -%}
+                {%- set lb = state_attr(s,'leaderboard') or [] -%}
+                {%- set ns = namespace(c=[]) -%}
+                {%- for r in state_attr(s,'rewards') or [] -%}
+                {%- set who = lb | selectattr('balance','ge',r.cost) | map(attribute='name') | list -%}
+                {%- set sub = r.cost ~ ' pts · ' ~ (who | join(', ') ~ ' can afford this' if who else 'nobody can afford this yet') -%}
+                {%- set ns.c = ns.c + [{'type':'custom:mushroom-template-card','primary':r.title,'secondary':sub,'icon':('mdi:gift' if who else 'mdi:gift-outline'),'icon_color':('green' if who else 'blue-grey'),'tap_action':{'action':'url','url_path':'https://app.adhdtasker.com/?tab=bank'}}] -%}
+                {%- endfor -%}
+                {{ ns.c }}
+
+  # ────────────────────────────────── PARENT ────────────────────────────────
+  - title: Parent
+    path: parent
+    icon: mdi:shield-account-outline
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Tick off a chore
+            icon: mdi:clipboard-check-outline
+          - type: todo-list
+            grid_options:
+              columns: full
+            entity: todo.FAMILY_adhdtasker_board
+      - type: grid
+        cards:
+          - type: heading
+            heading: Activity
+            icon: mdi:pulse
+          - type: entities
+            grid_options:
+              columns: full
+            entities:
+              - entity: sensor.FAMILY_adhdtasker_last_event
+                name: Last thing that happened
+              - entity: sensor.FAMILY_adhdtasker_open_tasks
+                name: Open chores
+              - entity: sensor.FAMILY_adhdtasker_pending_approval
+                name: Awaiting approval
+              - entity: button.FAMILY_adhdtasker_refresh
+                name: Refresh now
+          - type: history-graph
+            grid_options:
+              columns: full
+            hours_to_show: 168
+            title: Open chores, past week
+            entities:
+              - entity: sensor.FAMILY_adhdtasker_open_tasks
+                name: Open

@@ -80,8 +80,27 @@ notification shows a **webhook URL** — paste it into the app → **Manage → 
 enable a Nabu Casa cloudhook). Set a **shared secret** in the integration's options and the same
 in the app to reject spoofed POSTs.
 
-## Dashboard
-A ready-to-paste Lovelace dashboard is in [`adhdtasker-dashboard.yaml`](adhdtasker-dashboard.yaml).
+## Dashboards
+Three ready-to-paste Lovelace dashboards, all set up with a single find/replace of
+`FAMILY_adhdtasker` for your family's slug (e.g. `muir_adhdtasker` — the exact ids are in
+**Developer Tools → States**). None of them need per-child editing: people, chores and
+rewards are generated from the `leaderboard`, `tasks` and `rewards` attributes of one sensor,
+so adding or renaming a kid changes nothing.
+
+| File | What | Needs |
+|---|---|---|
+| [`adhdtasker-hub-dashboard.yaml`](adhdtasker-hub-dashboard.yaml) | **Family Hub** — four views: Today (who's home, what everyone is doing, routines banded morning/afternoon/evening), Chores, Bank (balances + what the points buy), Parent | [Mushroom](https://github.com/piitaya/lovelace-mushroom) + [auto-entities](https://github.com/thomasloven/lovelace-auto-entities); the Bank catalog needs v0.1.5+ |
+| [`adhdtasker-family-dashboard-core.yaml`](adhdtasker-family-dashboard-core.yaml) | Same information, plain **core cards** | nothing |
+| [`adhdtasker-dashboard.yaml`](adhdtasker-dashboard.yaml) | The original single-view board | nothing |
+
+Presence on the Hub dashboard is optional — a profile is matched to `person.<name>` by slug,
+and where no such entity exists that part is simply left off.
+
+> If you edit a template in the Hub dashboard: auto-entities does
+> `typeof result === "string" ? result.split(/[\s,]+/) : result`, so a template that *prints*
+> its cards gets shredded on whitespace into bogus entities and you get a wall of
+> "Configuration error". Build a list in a namespace and emit it once as `{{ ns.c }}` so the
+> websocket returns a native list. Use a `|` literal block, never `>-`.
 
 ## Notes
 - **The API key is full family automation access** — it can add, edit, delete, complete and
