@@ -34,6 +34,33 @@ family-scoped API documented at <https://adhdtasker.com/home-assistant.html>. No
 
 **Event** — `adhdtasker_event` fires on the bus for every webhook (secret stripped).
 
+Every event carries the same envelope:
+
+| Field | What |
+|---|---|
+| `event` | `task.added`, `task.proposed`, `interrupt.added`, `task.claimed`, `task.submitted`, `task.completed`, `task.approved`, `task.due`, `reward.requested`, `ping`, `test` |
+| `previous_status` | status *before* the change — `""` when nothing moved (a create, or a due reminder) |
+| `status` | status after it |
+| `profile` | `{ name }` — the person the chore belongs to / who gets the credit |
+| `actor` | `{ id, name, role }` — **who caused it**, which is often someone else |
+| `task` | `{ id, title, points, type, status }` |
+
+`actor` is not the same as `profile`: when a parent approves a kid's chore, the parent is the
+`actor` and the kid is the `profile`. Both are always objects, so `trigger.event.data.actor.name`
+is safe to read unguarded; empty strings mean no nameable person did it — a due reminder is the
+clock, and an inbound `/api` call is an automation. `actor` is stamped server-side and a child
+cannot forge it (the security rules let a member change only `status`, `claimedByProfileId` and
+`completedAt`).
+
+That makes automations precise without guesswork — e.g. only when a parent approved something:
+
+```yaml
+conditions:
+  - "{{ trigger.event.data.previous_status == 'PENDING_APPROVAL' }}"
+  - "{{ trigger.event.data.status == 'DONE' }}"
+  - "{{ trigger.event.data.actor.role == 'PARENT' }}"
+```
+
 ## Install
 
 ### HACS (custom repository)
