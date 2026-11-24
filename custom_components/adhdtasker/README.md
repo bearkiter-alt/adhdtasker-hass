@@ -29,7 +29,8 @@ It talks to the same family‑scoped inbound API documented at
 
 **Button** — `button.<family>_adhdtasker_refresh` — pull fresh board state between polls.
 
-**Services** — `adhdtasker.add_task`, `add_interrupt`, `claim_task`, `complete_task`, `ping`.
+**Services** — `adhdtasker.add_task`, `add_interrupt`, `claim_task`, `complete_task`,
+`approve_task`, `ping`.
 
 **Event** — `adhdtasker_event` fires on the HA bus for every webhook (secret stripped), so
 you can drive announcements/lights from `task.completed`, `task.due`, `ping`, etc.

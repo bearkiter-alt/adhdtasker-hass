@@ -1,8 +1,16 @@
 """A native To-do list entity backed by the ADHDTasker board.
 
-Open tasks become to-do items. Add → add_task, tick off → complete_task (awards points),
-rename → update_task, delete → delete_task. The assignee/points annotation lives in the
-item *description* so the *summary* stays equal to the task title (clean renames).
+Open tasks become to-do items. Add → add_task, rename → update_task, delete → delete_task.
+
+Ticking an item off maps BY TYPE, because the two kinds of row mean different things and
+both clients already treat them differently: a real task → complete_task (awards points),
+an INTERRUPT → delete_task, which is what the PWA's "Clear" button does. An interrupt is a
+zero-point capture that can never be completed — the API rejects it — so a tick on one
+means "handled, drop it", not "credit me". Interrupts stay listed deliberately: an
+unscored don't-forget is the row most likely to be forgotten.
+
+The assignee/points annotation lives in the item *description* so the *summary* stays
+equal to the task title (clean renames).
 """
 
 from __future__ import annotations
@@ -61,6 +69,11 @@ class AdhdtaskerTodoList(AdhdtaskerEntity, TodoListEntity):
         items: list[TodoItem] = []
         for task in (self.coordinator.data or {}).get("tasks", []):
             extras: list[str] = []
+            # An interrupt otherwise renders with an empty description: its points are 0
+            # (falsy), it usually has no assignee or claimant, and it can never be
+            # PENDING_APPROVAL. Say what it is, and that a tick clears rather than completes.
+            if task.get("type") == "INTERRUPT":
+                extras.extend(("note", "tick to clear"))
             if task.get("assignee"):
                 extras.append(f"for {task['assignee']}")
             elif task.get("claimedBy"):
@@ -89,11 +102,17 @@ class AdhdtaskerTodoList(AdhdtaskerEntity, TodoListEntity):
     async def async_update_todo_item(self, item: TodoItem) -> None:
         if not item.uid:
             return
+        current = self._task(item.uid)
         try:
             if item.status == TodoItemStatus.COMPLETED:
-                await self.coordinator.api.complete_task(task_id=item.uid)
+                # Only divert when we positively know it's an interrupt: an unknown uid
+                # (stale coordinator data) keeps the old behaviour rather than guessing
+                # its way into a delete.
+                if current and current.get("type") == "INTERRUPT":
+                    await self.coordinator.api.delete_task(task_id=item.uid)
+                else:
+                    await self.coordinator.api.complete_task(task_id=item.uid)
             else:
-                current = self._task(item.uid)
                 if current and item.summary and item.summary != current.get("title"):
                     await self.coordinator.api.update_task(
                         task_id=item.uid, title=item.summary
